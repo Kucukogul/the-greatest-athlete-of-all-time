@@ -1,0 +1,79 @@
+# Tennis GOAT Scoring Configuration
+# Version: v1
+# Strategy: weighted_average
+# Score range: 0–100 (enforced by scorer)
+# All weights must sum to 1.0
+
+strategy: weighted_average
+
+# ─────────────────────────────────────────────
+# LAYER 1 — Absolute Achievement (raw metrics)
+# Ağırlık toplamı: 0.70
+# ─────────────────────────────────────────────
+weights:
+  grand_slam_normalized:      0.28   # Grand Slam sayısı — en kritik gösterge
+  weeks_no1_normalized:       0.18   # Haftalık No.1 süresi — süregelen doruk
+  masters_titles_normalized:  0.14   # Masters 1000 şampiyonlukları — elite tutarlılık
+  career_win_rate_normalized: 0.10   # Kariyer kazanma yüzdesi — hacim + kalite
+
+# ─────────────────────────────────────────────
+# LAYER 2 — Quality Indicators (quality metrics)
+# Ağırlık toplamı: 0.20
+# ─────────────────────────────────────────────
+  yearend_no1_normalized:     0.08   # Yıl sonu No.1 finişleri — yıllık zirvede bitirme
+  finals_win_rate_normalized: 0.07   # Final kazanma yüzdesi — büyük anlarda performans
+  h2h_top10_normalized:       0.05   # Top-10 rakiplere karşı H2H — rakip kalite filtresi
+
+# ─────────────────────────────────────────────
+# LAYER 3 — Contextual Adjusters (era + breadth)
+# Ağırlık toplamı: 0.10
+# ─────────────────────────────────────────────
+  surface_versatility_normalized: 0.06  # Yüzey çeşitliliği — sadece kil değil, her yüzeyde dominance
+  longevity_normalized:           0.04  # Kariyer uzunluğu — kaç yıl top-5'te kaldı
+
+# ─────────────────────────────────────────────
+# ERA NORMALIZATION PARAMETERS
+# engineering.py → FeatureEngineer.era_adjust() için
+# ─────────────────────────────────────────────
+era_definitions:
+  open_era:
+    years: [1968, 1989]
+    label: "Open Era"
+    gs_per_year_mean: 1.2    # Ortalama GS/yıl — rekabet derinliği düşük
+    weeks_no1_mean: 52.0
+
+  modern_era:
+    years: [1990, 2003]
+    label: "Modern Era"
+    gs_per_year_mean: 1.8
+    weeks_no1_mean: 48.0
+
+  big3_era:
+    years: [2004, 2023]
+    label: "Big 3 Era"
+    gs_per_year_mean: 2.8    # Rekabet doruk noktasında — en sert dönem
+    weeks_no1_mean: 38.0
+
+# ─────────────────────────────────────────────
+# SURFACE VERSATILITY — bileşik hesaplama
+# Her yüzeyde kazanma oranı → std ile normalize
+# Düşük std = yüksek versatility
+# ─────────────────────────────────────────────
+surface_versatility:
+  surfaces: [hard, clay, grass]
+  method: inverse_std  # win_rate std'sinin tersi → tutarlılığı ödüllendirir
+
+# ─────────────────────────────────────────────
+# PENALTIES
+# Oynanmayan turnuva cezası (0.0 = aktif değil)
+# ─────────────────────────────────────────────
+penalties:
+  tournaments_played_pct: 0.05  # Kariyer boyunca katılım oranı — düşük katılım hafif ceza
+
+# ─────────────────────────────────────────────
+# SCORE VALIDATION
+# ─────────────────────────────────────────────
+validation:
+  score_min: 0.0
+  score_max: 100.0
+  weight_sum_tolerance: 1e-6   # weights toplamının 1.0'dan sapma toleransı

@@ -1,6 +1,9 @@
 # The Greatest Athlete of All Time
 
 An analytical platform that measures athletic superiority across sports using statistical modeling and normalization systems.
+
+**Live demo → [the-greatest-athlete-of-all-time.streamlit.app](https://the-greatest-athlete-of-all-time.streamlit.app)**
+
 ---
 
 ## Folder Structure

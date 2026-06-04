@@ -44,17 +44,13 @@ _METRIC_MAP: dict[str, str] = {
 
 
 class TennisNormalizer:
-    """
-    Transforms raw tennis career stats into normalized [0–100] columns.
+    """Raw tennis career stats → normalized [0–100] columns.
 
     Pipeline order (must not change):
-      1. validate          — guard against missing columns / empty input
-      2. compute_derived   — ratios and surface versatility from raw columns
-      3. era_adjust        — scale counting stats by era difficulty (optional)
-      4. normalize_metrics — minmax each intermediate column → _normalized output
-
-    Output column names match scoring_tennis.yaml weight keys exactly,
-    so AthleteScorer can consume the result directly without renaming.
+      1. validate
+      2. compute_derived
+      3. era_adjust  (optional)
+      4. normalize_metrics
     """
 
     def __init__(self, config_path: str | Path = _CONFIG_PATH) -> None:
@@ -64,10 +60,7 @@ class TennisNormalizer:
         self._surface_cfg: dict = self._config.get("surface_versatility", {})
 
     def normalize(self, df: pd.DataFrame, *, era_adjust: bool = True) -> pd.DataFrame:
-        """
-        Returns a new DataFrame with all _normalized columns appended.
-        Original raw columns are preserved for auditability.
-        """
+        """Return a new DataFrame with all _normalized columns appended."""
         self._validate(df)
         result = df.copy()
         result = self._compute_derived_metrics(result)
@@ -97,14 +90,7 @@ class TennisNormalizer:
         return df
 
     def _compute_surface_versatility(self, df: pd.DataFrame) -> pd.Series:
-        """
-        Measures how evenly a player performs across surfaces.
-        Method: inverse_std — lower spread across win rates → higher versatility score.
-
-        Formula:
-            std = stddev(hard_win_pct, clay_win_pct, grass_win_pct) per player
-            versatility = (1 - std / max_std) * 100
-        """
+        """Inverse std across hard/clay/grass win rates — lower spread = higher score."""
         surfaces = self._surface_cfg.get("surfaces", ["hard", "clay", "grass"])
         pct_cols = [f"{s}_win_pct" for s in surfaces]
         stds = df[pct_cols].std(axis=1)
@@ -114,21 +100,10 @@ class TennisNormalizer:
         return (1.0 - stds / max_std) * 100.0
 
     def _apply_era_adjustment(self, df: pd.DataFrame) -> pd.DataFrame:
-        """
-        Scales grand_slams and weeks_at_no1 to account for era difficulty.
+        """Scale grand_slams and weeks_at_no1 to Big 3 Era equivalents.
 
-        Reference era: big3_era (most competitive — used as the 1.0 baseline).
-
-        Formula:
-            era_factor = reference_mean / this_era_mean
-
-        Interpretation:
-            - A player winning 1.2 GS/year in Open Era was as dominant in their
-              era as someone winning 2.8 GS/year in Big 3 era.
-            - Equalising raises Open Era player counts to Big 3 era equivalents.
-
-        Affected columns: grand_slams, weeks_at_no1
-        Ratio-based columns (win rates, H2H) are era-independent by definition.
+        Big 3 Era is used as the reference (factor = 1.0). Open/Modern Era players
+        get their counts scaled up proportionally to their era's competitive depth.
         """
         ref = self._era_defs.get("big3_era", {})
         ref_gs = ref.get("gs_per_year_mean", 1.0)
@@ -163,6 +138,6 @@ class TennisNormalizer:
             df[output_col] = normalize_series(df[source_col], method="minmax")
         return df
 
+
 def _safe_ratio(numerator: pd.Series, denominator: pd.Series) -> pd.Series:
-    """Division that returns 0.0 where denominator is zero or null."""
     return numerator.div(denominator.replace(0, float("nan"))).fillna(0.0)

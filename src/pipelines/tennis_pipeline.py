@@ -22,16 +22,7 @@ _RANKING_GLOBS = [
 
 
 class TennisPipeline:
-    """
-    Raw ATP CSV data → one career-stats row per player.
-
-    Output schema matches TennisNormalizer._REQUIRED_RAW_COLUMNS exactly.
-    Pipeline is a pure transformation: no side effects, no file writes.
-
-    Usage:
-        df = TennisPipeline(data_dir).run(player_ids=[103819, 104745, 104925])
-        df = TennisPipeline(data_dir).run(min_matches=200)  # all qualifying players
-    """
+    """Raw ATP CSVs → one career-stats row per player. Pure transformation, no file writes."""
 
     def __init__(self, data_dir: str | Path) -> None:
         self._data_dir = Path(data_dir)
@@ -41,13 +32,9 @@ class TennisPipeline:
         player_ids: list[int] | None = None,
         min_matches: int = 200,
     ) -> pd.DataFrame:
-        """
-        Returns a DataFrame with one row per player, ready for TennisNormalizer.
+        """One row per player, ready for TennisNormalizer.
 
-        Args:
-            player_ids:  Explicit list of ATP player IDs. If None, selects all
-                         players with >= min_matches career tour-level matches.
-            min_matches: Minimum career matches threshold when player_ids is None.
+        If player_ids is None, selects all players with >= min_matches tour-level matches.
         """
         logger.info("Loading match data from %s", self._data_dir)
         matches = self._load_matches()
@@ -146,27 +133,29 @@ class TennisPipeline:
         era = self._assign_era(wins_df, losses_df)
 
         return {
-            "athlete_id":        f"atp_{player_id}",
-            "name":              name,
-            "sport":             "tennis",
-            "era":               era,
-            "grand_slams":       self._title_count(wins_df, "G"),
-            "masters_titles":    self._title_count(wins_df, "M"),
-            "career_wins":       career_wins,
-            "career_matches":    career_matches,
-            "weeks_at_no1":      self._weeks_at_rank(player_rankings, 1),
-            "yearend_no1_count": self._yearend_rank_count(player_rankings, 1),
-            "years_in_top5":     self._years_at_rank(player_rankings, 5),
-            "finals_won":        self._finals_count(wins_df),
-            "finals_played":     self._finals_count(wins_df) + self._finals_count(losses_df),
-            "h2h_top10_wins":    self._h2h_wins(wins_df, rank_col="loser_rank", threshold=10),
-            "h2h_top10_total":   (
+            "athlete_id":         f"atp_{player_id}",
+            "name":               name,
+            "sport":              "tennis",
+            "era":                era,
+            "grand_slams":        self._title_count(wins_df, "G"),
+            "masters_titles":     self._title_count(wins_df, "M"),
+            "career_wins":        career_wins,
+            "career_matches":     career_matches,
+            "weeks_at_no1":       self._weeks_at_rank(player_rankings, 1),
+            "yearend_no1_count":  self._yearend_rank_count(player_rankings, 1),
+            "years_in_top5":      self._years_at_rank(player_rankings, 5),
+            "finals_won":         self._finals_count(wins_df),
+            "finals_played":      self._finals_count(wins_df) + self._finals_count(losses_df),
+            "h2h_top10_wins":     self._h2h_wins(wins_df, rank_col="loser_rank", threshold=10),
+            "h2h_top10_total":    (
                 self._h2h_wins(wins_df, rank_col="loser_rank", threshold=10)
                 + self._h2h_wins(losses_df, rank_col="winner_rank", threshold=10)
             ),
-            "hard_win_pct":      self._surface_win_rate(wins_df, losses_df, "Hard"),
-            "clay_win_pct":      self._surface_win_rate(wins_df, losses_df, "Clay"),
-            "grass_win_pct":     self._surface_win_rate(wins_df, losses_df, "Grass"),
+            "hard_win_pct":       self._surface_win_rate(wins_df, losses_df, "Hard"),
+            "clay_win_pct":       self._surface_win_rate(wins_df, losses_df, "Clay"),
+            "grass_win_pct":      self._surface_win_rate(wins_df, losses_df, "Grass"),
+            "clay_win_rate_std":  self._surface_win_rate_std(wins_df, losses_df, "Clay"),
+            "grass_win_rate_std": self._surface_win_rate_std(wins_df, losses_df, "Grass"),
         }
 
     @staticmethod
@@ -184,6 +173,19 @@ class TennisPipeline:
         return int(
             (wins[rank_col].fillna(999) <= threshold).sum()
         )
+
+    @staticmethod
+    def _surface_win_rate_std(
+        wins: pd.DataFrame,
+        losses: pd.DataFrame,
+        surface: str,
+    ) -> float:
+        """Year-over-year std of surface win rate — captures seasonal consistency."""
+        w = wins[wins["surface"] == surface].groupby("year").size().rename("wins")
+        l = losses[losses["surface"] == surface].groupby("year").size().rename("losses")
+        by_year = pd.concat([w, l], axis=1).fillna(0)
+        by_year["rate"] = by_year["wins"] / (by_year["wins"] + by_year["losses"])
+        return round(float(by_year["rate"].std()), 4) if len(by_year) >= 2 else 0.0
 
     @staticmethod
     def _surface_win_rate(

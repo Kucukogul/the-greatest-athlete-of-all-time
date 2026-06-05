@@ -23,6 +23,9 @@ ENV/
 profile_default/
 ipython_config.py
 
+# External/reference notebooks (third-party, not project code)
+notebooks/other/
+
 # Data artifacts (never commit raw/processed data)
 data/raw/
 data/processed/

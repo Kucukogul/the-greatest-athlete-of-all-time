@@ -7,7 +7,8 @@ def normalize_series(s: pd.Series, method: str = "minmax") -> pd.Series:
     if method == "minmax":
         min_val, max_val = s.min(), s.max()
         if max_val == min_val:
-            return pd.Series(50.0, index=s.index)
+            # Preserve NaN; set all valid positions to 50.0
+            return s.where(s.isna(), 50.0)
         return (s - min_val) / (max_val - min_val) * 100
     if method == "zscore":
         return (s - s.mean()) / s.std() * 15 + 50

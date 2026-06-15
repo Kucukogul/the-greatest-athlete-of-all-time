@@ -21,6 +21,37 @@ def sample_athlete_df() -> pd.DataFrame:
     })
 
 
+# ── NBA fixtures ─────────────────────────────────────────────────────────────
+
+@pytest.fixture(scope="session")
+def nba_data_dir() -> Path:
+    return Path(__file__).parent.parent / "data" / "raw"
+
+
+@pytest.fixture(scope="session")
+def nba_config_dir() -> Path:
+    return Path(__file__).parent.parent / "configs"
+
+
+@pytest.fixture(scope="session")
+def nba_result(nba_data_dir, nba_config_dir):
+    """Full NBA GOAT ranking — computed once per test session (scope=session)."""
+    from src.pipelines.nba_runner import NBARunner
+    if not (nba_data_dir / "nba_all_seasons_raw.csv").exists():
+        pytest.skip("nba_all_seasons_raw.csv not present — skipping NBA integration tests")
+    runner = NBARunner(nba_data_dir, nba_config_dir)
+    return runner.run()
+
+
+@pytest.fixture(scope="session")
+def nba_snapshot() -> dict:
+    """Expected GOAT scores loaded from versioned fixture file."""
+    import json
+    path = Path(__file__).parent / "fixtures" / "nba_goat_snapshot_v1.json"
+    with open(path) as f:
+        return json.load(f)
+
+
 # ── Tennis fixtures ───────────────────────────────────────────────────────────
 
 @pytest.fixture

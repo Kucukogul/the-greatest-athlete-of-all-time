@@ -1,0 +1,440 @@
+# NBA Achievement Data
+# Version: v1
+# Source: Basketball-Reference
+# Coverage: NBA only — ABA achievements excluded (affects Julius Erving)
+# Join key: player_id — matches nba_all_seasons_raw.csv
+# Players absent from this file default to 0 for all achievement metrics.
+
+meta:
+  version: v1
+  last_updated: "2026-06-14"
+  source: Basketball-Reference
+  coverage: "NBA regular season and playoffs only. ABA statistics excluded."
+  join_key: player_id
+  aba_exclusion_note: >
+    Julius Erving won 3 ABA MVPs (1974–76) and 3 ABA championships (1974, 1976) not counted here.
+    All fields reflect NBA-only career achievements.
+
+# ─────────────────────────────────────────────────────────────────
+# Field Definitions
+# championships          — NBA championship titles won
+# mvp_awards             — Regular Season MVP awards
+# finals_mvp             — NBA Finals MVP awards
+# all_nba_1st_team       — All-NBA First Team selections
+# all_nba_2nd_team       — All-NBA Second Team selections
+# all_star_selections    — All-Star Game selections
+# dpoy_awards            — Defensive Player of the Year awards
+# all_defensive_1st_team — NBA All-Defensive First Team selections
+# ─────────────────────────────────────────────────────────────────
+
+defaults:
+  championships: 0
+  mvp_awards: 0
+  finals_mvp: 0
+  all_nba_1st_team: 0
+  all_nba_2nd_team: 0
+  all_star_selections: 0
+  dpoy_awards: 0
+  all_defensive_1st_team: 0
+
+players:
+
+  # ─── GOAT Tier — 8 primary analysis candidates ───────────────────────
+
+  jamesle01:
+    name: "LeBron James"
+    active_years: [2004, 2026]
+    championships: 4             # 2012, 2013 MIA | 2016 CLE | 2020 LAL
+    mvp_awards: 4                # 2009, 2010, 2012, 2013
+    finals_mvp: 4                # 2012, 2013, 2016, 2020
+    all_nba_1st_team: 13
+    all_nba_2nd_team: 3
+    all_star_selections: 20
+    dpoy_awards: 0
+    all_defensive_1st_team: 5    # 2009–2013
+
+  jordami01:
+    name: "Michael Jordan"
+    active_years: [1985, 2003]
+    championships: 6             # 1991, 1992, 1993, 1996, 1997, 1998
+    mvp_awards: 5                # 1988, 1991, 1992, 1996, 1998
+    finals_mvp: 6                # All 6 championship seasons
+    all_nba_1st_team: 10         # 1987–1993, 1996–1998
+    all_nba_2nd_team: 1
+    all_star_selections: 14      # 1985–1993, 1996–1998, 2002, 2003
+    dpoy_awards: 1               # 1988
+    all_defensive_1st_team: 9    # 1988–1993, 1996–1998
+
+  abdulka01:
+    name: "Kareem Abdul-Jabbar"
+    active_years: [1970, 1989]
+    championships: 6             # 1971 MIL | 1980, 1982, 1985, 1987, 1988 LAL
+    mvp_awards: 6                # 1971, 1972, 1974, 1976, 1977, 1980
+    finals_mvp: 2                # 1971, 1985
+    all_nba_1st_team: 10
+    all_nba_2nd_team: 2
+    all_star_selections: 19
+    dpoy_awards: 0
+    all_defensive_1st_team: 5    # 1975–1979
+
+  chambwi01:
+    name: "Wilt Chamberlain"
+    active_years: [1960, 1973]
+    championships: 2             # 1967 PHI | 1972 LAL
+    mvp_awards: 4                # 1960, 1966, 1967, 1968
+    finals_mvp: 1                # 1972 LAL — verify against Basketball-Reference
+    all_nba_1st_team: 7
+    all_nba_2nd_team: 3
+    all_star_selections: 13
+    dpoy_awards: 0               # DPOY award did not exist during career
+    all_defensive_1st_team: 2    # 1969, 1970 (award began 1969, last two seasons)
+
+  russebi01:
+    name: "Bill Russell"
+    active_years: [1957, 1969]
+    championships: 11            # 1957, 1959, 1960, 1961, 1962, 1963, 1964, 1965, 1966, 1968, 1969
+    mvp_awards: 5                # 1958, 1961, 1962, 1963, 1965
+    finals_mvp: 0                # Award started 1969; Jerry West won from losing Lakers team
+    all_nba_1st_team: 3          # 1959, 1963, 1965 — voters prioritized offense in era
+    all_nba_2nd_team: 8
+    all_star_selections: 12
+    dpoy_awards: 0               # DPOY award did not exist during career
+    all_defensive_1st_team: 1    # 1969 — first year of award, final season
+
+  johnsma02:
+    name: "Magic Johnson"
+    active_years: [1980, 1996]
+    championships: 5             # 1980, 1982, 1985, 1987, 1988
+    mvp_awards: 3                # 1987, 1989, 1990
+    finals_mvp: 3                # 1980, 1982, 1987
+    all_nba_1st_team: 9          # 1983–1991
+    all_nba_2nd_team: 2
+    all_star_selections: 12
+    dpoy_awards: 0
+    all_defensive_1st_team: 0
+
+  birdla01:
+    name: "Larry Bird"
+    active_years: [1980, 1992]
+    championships: 3             # 1981, 1984, 1986
+    mvp_awards: 3                # 1984, 1985, 1986
+    finals_mvp: 2                # 1984, 1986
+    all_nba_1st_team: 9          # 1980–1988
+    all_nba_2nd_team: 2
+    all_star_selections: 12
+    dpoy_awards: 0
+    all_defensive_1st_team: 0
+
+  curryst01:
+    name: "Stephen Curry"
+    active_years: [2010, 2026]
+    championships: 4             # 2015, 2017, 2018, 2022
+    mvp_awards: 2                # 2015, 2016 (unanimous)
+    finals_mvp: 1                # 2022
+    all_nba_1st_team: 6
+    all_nba_2nd_team: 2
+    all_star_selections: 10
+    dpoy_awards: 0
+    all_defensive_1st_team: 0
+
+  # ─── Extended HOF Tier ───────────────────────────────────────────────
+
+  bryanko01:
+    name: "Kobe Bryant"
+    active_years: [1997, 2016]
+    championships: 5             # 2000, 2001, 2002, 2009, 2010
+    mvp_awards: 1                # 2008
+    finals_mvp: 2                # 2009, 2010
+    all_nba_1st_team: 11         # 2002–2004, 2006–2013
+    all_nba_2nd_team: 2
+    all_star_selections: 18
+    dpoy_awards: 0
+    all_defensive_1st_team: 9    # 2000–2003, 2006–2011
+
+  duncati01:
+    name: "Tim Duncan"
+    active_years: [1998, 2016]
+    championships: 5             # 1999, 2003, 2005, 2007, 2014
+    mvp_awards: 2                # 2002, 2003
+    finals_mvp: 3                # 1999, 2003, 2005
+    all_nba_1st_team: 10         # 1998–2003, 2005–2007, 2013
+    all_nba_2nd_team: 5
+    all_star_selections: 15
+    dpoy_awards: 0
+    all_defensive_1st_team: 8    # 1999–2003, 2005, 2007, 2008
+
+  onealsh01:
+    name: "Shaquille O'Neal"
+    active_years: [1993, 2011]
+    championships: 4             # 2000, 2001, 2002 LAL | 2006 MIA
+    mvp_awards: 1                # 2000
+    finals_mvp: 3                # 2000, 2001, 2002
+    all_nba_1st_team: 8          # 1998–2004, 2006
+    all_nba_2nd_team: 4
+    all_star_selections: 15
+    dpoy_awards: 0
+    all_defensive_1st_team: 0
+
+  olajuha01:
+    name: "Hakeem Olajuwon"
+    active_years: [1985, 2002]
+    championships: 2             # 1994, 1995
+    mvp_awards: 1                # 1994
+    finals_mvp: 2                # 1994, 1995
+    all_nba_1st_team: 6          # 1987–1989, 1993, 1994, 1997
+    all_nba_2nd_team: 5
+    all_star_selections: 12
+    dpoy_awards: 2               # 1993, 1994
+    all_defensive_1st_team: 9    # 1987–1989, 1993–1998
+
+  malonmo01:
+    name: "Moses Malone"
+    active_years: [1976, 1995]
+    championships: 1             # 1983 PHI
+    mvp_awards: 3                # 1979, 1982, 1983
+    finals_mvp: 1                # 1983
+    all_nba_1st_team: 4          # 1979, 1982, 1983, 1985
+    all_nba_2nd_team: 4
+    all_star_selections: 12
+    dpoy_awards: 0
+    all_defensive_1st_team: 0
+
+  roberos01:
+    name: "Oscar Robertson"
+    active_years: [1961, 1974]
+    championships: 1             # 1971 MIL
+    mvp_awards: 1                # 1964
+    finals_mvp: 0                # 1971 Finals MVP went to Kareem Abdul-Jabbar
+    all_nba_1st_team: 9          # 1961–1969
+    all_nba_2nd_team: 2
+    all_star_selections: 12
+    dpoy_awards: 0
+    all_defensive_1st_team: 1    # 1969 — first year of award
+
+  westje01:
+    name: "Jerry West"
+    active_years: [1961, 1974]
+    championships: 1             # 1972
+    mvp_awards: 0                # Never won RS MVP despite being an all-time great
+    finals_mvp: 1                # 1969 — only Finals MVP ever awarded to a player on the losing team
+    all_nba_1st_team: 10         # 1962–1967, 1970–1973
+    all_nba_2nd_team: 2
+    all_star_selections: 14
+    dpoy_awards: 0
+    all_defensive_1st_team: 5    # 1969–1973
+
+  duranke01:
+    name: "Kevin Durant"
+    active_years: [2008, 2026]
+    championships: 2             # 2017, 2018
+    mvp_awards: 1                # 2014
+    finals_mvp: 2                # 2017, 2018
+    all_nba_1st_team: 8          # 2010–2014, 2018, 2019, 2021
+    all_nba_2nd_team: 2
+    all_star_selections: 13
+    dpoy_awards: 0
+    all_defensive_1st_team: 0
+
+  nowitdi01:
+    name: "Dirk Nowitzki"
+    active_years: [1999, 2019]
+    championships: 1             # 2011
+    mvp_awards: 1                # 2007
+    finals_mvp: 1                # 2011
+    all_nba_1st_team: 4          # 2005, 2006, 2007, 2009
+    all_nba_2nd_team: 6
+    all_star_selections: 14
+    dpoy_awards: 0
+    all_defensive_1st_team: 0
+
+  ervinju01:
+    name: "Julius Erving"
+    active_years: [1977, 1987]   # NBA career only (joined from ABA in 1977)
+    championships: 1             # 1983 PHI (NBA only)
+    mvp_awards: 1                # 1981 (NBA only — 3× ABA MVP excluded)
+    finals_mvp: 0                # 1983 Finals MVP went to Moses Malone
+    all_nba_1st_team: 5          # 1978–1983 (NBA only)
+    all_nba_2nd_team: 4
+    all_star_selections: 11      # NBA only
+    dpoy_awards: 0
+    all_defensive_1st_team: 0
+
+  barklch01:
+    name: "Charles Barkley"
+    active_years: [1985, 2000]
+    championships: 0
+    mvp_awards: 1                # 1993
+    finals_mvp: 0
+    all_nba_1st_team: 5          # 1988, 1990, 1991, 1993, 1995
+    all_nba_2nd_team: 5
+    all_star_selections: 11
+    dpoy_awards: 0
+    all_defensive_1st_team: 0
+
+  garneke01:
+    name: "Kevin Garnett"
+    active_years: [1996, 2016]
+    championships: 1             # 2008 BOS
+    mvp_awards: 1                # 2004
+    finals_mvp: 0                # 2008 Finals MVP went to Paul Pierce
+    all_nba_1st_team: 4          # 2000, 2003, 2004, 2008
+    all_nba_2nd_team: 5
+    all_star_selections: 15
+    dpoy_awards: 1               # 2008
+    all_defensive_1st_team: 9    # 1999–2007
+
+  malonka01:
+    name: "Karl Malone"
+    active_years: [1986, 2004]
+    championships: 0
+    mvp_awards: 2                # 1997, 1999
+    finals_mvp: 0
+    all_nba_1st_team: 11         # 1988–1998
+    all_nba_2nd_team: 2
+    all_star_selections: 14
+    dpoy_awards: 0
+    all_defensive_1st_team: 1
+
+  stockjo01:
+    name: "John Stockton"
+    active_years: [1985, 2003]
+    championships: 0
+    mvp_awards: 0
+    finals_mvp: 0
+    all_nba_1st_team: 2          # 1994, 1995
+    all_nba_2nd_team: 6
+    all_star_selections: 10
+    dpoy_awards: 0
+    all_defensive_1st_team: 5    # 1989, 1991–1994
+
+  bayloel01:
+    name: "Elgin Baylor"
+    active_years: [1959, 1972]
+    championships: 0             # Famously never won despite 8 Finals appearances
+    mvp_awards: 0
+    finals_mvp: 0                # Award started 1969
+    all_nba_1st_team: 10         # 1959–1969
+    all_nba_2nd_team: 1
+    all_star_selections: 11
+    dpoy_awards: 0
+    all_defensive_1st_team: 0
+
+  cousybo01:
+    name: "Bob Cousy"
+    active_years: [1951, 1970]
+    championships: 6             # 1957, 1959, 1960, 1961, 1962, 1963
+    mvp_awards: 1                # 1957
+    finals_mvp: 0                # Award started 1969
+    all_nba_1st_team: 10         # 1952–1961
+    all_nba_2nd_team: 2
+    all_star_selections: 13
+    dpoy_awards: 0
+    all_defensive_1st_team: 0
+
+  pettibo01:
+    name: "Bob Pettit"
+    active_years: [1955, 1965]
+    championships: 1             # 1958 STL Hawks — the only Celtics dynasty interruption
+    mvp_awards: 2                # 1956, 1959
+    finals_mvp: 0                # Award started 1969
+    all_nba_1st_team: 10         # 1956–1965
+    all_nba_2nd_team: 1
+    all_star_selections: 11
+    dpoy_awards: 0
+    all_defensive_1st_team: 0
+
+  rodmade01:
+    name: "Dennis Rodman"
+    active_years: [1987, 2000]
+    championships: 5             # 1989, 1990 DET | 1996, 1997, 1998 CHI
+    mvp_awards: 0
+    finals_mvp: 0
+    all_nba_1st_team: 0
+    all_nba_2nd_team: 2
+    all_star_selections: 2
+    dpoy_awards: 2               # 1990, 1991
+    all_defensive_1st_team: 8    # 1989–1999 (approx; varies by source)
+
+  paytoga01:
+    name: "Gary Payton"
+    active_years: [1991, 2007]
+    championships: 1             # 2006 MIA
+    mvp_awards: 0
+    finals_mvp: 0
+    all_nba_1st_team: 2          # 1998, 2000
+    all_nba_2nd_team: 4
+    all_star_selections: 9
+    dpoy_awards: 1               # 1996
+    all_defensive_1st_team: 9    # 1994–2002
+
+  mchalke01:
+    name: "Kevin McHale"
+    active_years: [1981, 1993]
+    championships: 3             # 1981, 1984, 1986
+    mvp_awards: 0
+    finals_mvp: 0
+    all_nba_1st_team: 1          # 1987
+    all_nba_2nd_team: 7
+    all_star_selections: 7
+    dpoy_awards: 0
+    all_defensive_1st_team: 4    # 1986–1989
+
+  pippesc01:
+    name: "Scottie Pippen"
+    active_years: [1988, 2004]
+    championships: 6             # 1991, 1992, 1993, 1996, 1997, 1998
+    mvp_awards: 0
+    finals_mvp: 0
+    all_nba_1st_team: 3          # 1994, 1995, 1996
+    all_nba_2nd_team: 5
+    all_star_selections: 7
+    dpoy_awards: 0
+    all_defensive_1st_team: 8    # 1992–1999
+
+  wadedw01:
+    name: "Dwyane Wade"
+    active_years: [2004, 2019]
+    championships: 3             # 2006, 2012, 2013
+    mvp_awards: 0
+    finals_mvp: 1                # 2006
+    all_nba_1st_team: 2          # 2006, 2009
+    all_nba_2nd_team: 5
+    all_star_selections: 13
+    dpoy_awards: 0
+    all_defensive_1st_team: 3    # 2005, 2009, 2010
+
+  robinda01:
+    name: "David Robinson"
+    active_years: [1990, 2003]
+    championships: 2             # 1999, 2003
+    mvp_awards: 1                # 1995
+    finals_mvp: 0                # 1999 and 2003 Finals MVP went to Tim Duncan
+    all_nba_1st_team: 7          # 1991–1996, 2000
+    all_nba_2nd_team: 4
+    all_star_selections: 10
+    dpoy_awards: 1               # 1992
+    all_defensive_1st_team: 8    # 1991–1996, 1998, 1999
+
+  thomais01:
+    name: "Isiah Thomas"
+    active_years: [1982, 1994]
+    championships: 2             # 1989, 1990 DET Bad Boys
+    mvp_awards: 0
+    finals_mvp: 1                # 1990
+    all_nba_1st_team: 5          # 1984–1986, 1987, 1992
+    all_nba_2nd_team: 4
+    all_star_selections: 11
+    dpoy_awards: 0
+    all_defensive_1st_team: 1    # 1992
+
+# ─────────────────────────────────────────────────────────────────
+# Verification Notes — numbers to cross-check against Basketball-Reference
+# before any scoring weight calibration:
+#
+#   chambwi01.finals_mvp        — confirm 1972 Finals MVP recipient
+#   curryst01.all_nba_1st_team  — active career; count may increase
+#   duranke01.all_nba_1st_team  — active career; count may increase
+#   jamesle01.all_nba_1st_team  — active career; count may increase
+#   rodmade01.all_defensive_1st_team — varies 7–9 across sources
+#   garneke01.all_defensive_1st_team — varies 8–9 across sources
+# ─────────────────────────────────────────────────────────────────

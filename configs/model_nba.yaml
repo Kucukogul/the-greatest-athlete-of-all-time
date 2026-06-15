@@ -1,0 +1,75 @@
+# NBA Model Configuration
+# Version: v1
+# Two models: NBAForestModel (feature importance) + NBAClusterModel (tier assignment)
+
+version: v1
+
+# ─────────────────────────────────────────────────
+# RANDOM FOREST — predict goat_score from normalized features
+# Purpose: quantify which metrics drive GOAT status (feature importance).
+#          Also provides a non-linear sanity-check on the rule-based scorer.
+# Target:  goat_score (output of NBAScorer — continuous [0, 100])
+# ─────────────────────────────────────────────────
+forest:
+  target: goat_score
+  n_estimators: 300
+  max_depth: null          # unbounded — let trees split fully
+  min_samples_leaf: 3      # prevents single-player leaves
+  random_state: 42
+  nan_fill_strategy: median  # BPM/VORP NaN → median of column before fitting
+
+  features:
+    # Peak layer
+    - peak_bpm_normalized      # NaN for pre-advanced era (imputed)
+    - peak_ws48_normalized
+    - peak_vorp_normalized     # NaN for pre-advanced era (imputed)
+    # Career layer
+    - career_vorp_normalized   # NaN for pre-advanced era (imputed)
+    - career_ws_normalized
+    - career_bpm_normalized    # NaN for pre-advanced era (imputed)
+    # Efficiency layer
+    - career_ws48_normalized
+    - career_ts_normalized
+    # Achievement layer
+    - championships_normalized
+    - mvp_normalized
+    - finals_mvp_normalized
+    - all_nba_1st_normalized
+    - all_star_normalized
+    # Longevity layer
+    - longevity_normalized
+
+# ─────────────────────────────────────────────────
+# K-MEANS CLUSTER — assign players to GOAT tiers
+# Purpose: group similar career profiles into interpretable tiers.
+#          Tier ranking = mean goat_score per cluster (highest = GOAT).
+# Features: universal metrics only + BPM/VORP with median imputation
+# ─────────────────────────────────────────────────
+cluster:
+  n_clusters: 5
+  n_init: 20               # multiple initializations → stable clusters
+  random_state: 42
+  nan_fill_strategy: median
+
+  tier_labels:
+    - GOAT       # Top cluster by mean goat_score
+    - Elite      # Second cluster — HOF-tier, just below GOAT
+    - All-Star   # Third cluster — multiple All-Star appearances
+    - Starter    # Fourth cluster — quality NBA starters
+    - Rotation   # Fifth cluster — solid rotation players
+
+  features:
+    # Universal metrics (available for all eras — no imputation risk)
+    - peak_ws48_normalized
+    - career_ws_normalized
+    - career_ws48_normalized
+    - career_ts_normalized
+    - championships_normalized
+    - mvp_normalized
+    - all_nba_1st_normalized
+    - all_star_normalized
+    - longevity_normalized
+    # BPM/VORP with median imputation (pre-advanced era → column median)
+    - peak_bpm_normalized
+    - career_bpm_normalized
+    - career_vorp_normalized

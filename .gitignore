@@ -59,6 +59,9 @@ agents/
 skills/
 docs/
 
+# Blog (personal blog drafts — not part of the project)
+blog/
+
 # Environment secrets
 .env
 .env.local

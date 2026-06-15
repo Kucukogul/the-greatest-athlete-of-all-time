@@ -1,0 +1,93 @@
+# NBA GOAT Scoring Configuration
+# Version: v1
+# Strategy: nan_aware_weighted_average
+# Score range: 0–100 (enforced by NBAScorer)
+# All weights must sum to 1.0
+#
+# NaN policy: Pre-advanced era players (1947–73) lack BPM and VORP data.
+# Composite score is computed from available metrics only, then rescaled by
+# the sum of available weights so the output stays in [0, 100].
+
+version: v1
+strategy: nan_aware_weighted_average
+
+# ─────────────────────────────────────────────────
+# LAYER 1 — PEAK (0.35)
+# Best 3-consecutive qualifying-season window (G ≥ 40).
+# Highest weight: single-season dominance distinguishes true GOAT candidates.
+# ─────────────────────────────────────────────────
+weights:
+  peak_bpm_normalized:  0.14   # BPM peak — strongest relative efficiency signal; era-neutral by construction
+  peak_ws48_normalized: 0.12   # WS/48 peak — era-robust alternative anchor for pre-BPM players
+  peak_vorp_normalized: 0.09   # Best single-season VORP — transcendence ceiling (NaN pre-advanced)
+
+# ─────────────────────────────────────────────────
+# LAYER 2 — CAREER (0.26)
+# Cumulative value across all qualifying seasons.
+# Rewards sustained excellence, not just peak seasons.
+# ─────────────────────────────────────────────────
+  career_vorp_normalized: 0.11  # Total VORP — career length × quality (NaN pre-advanced)
+  career_ws_normalized:   0.09  # Total Win Shares — volume of winning contributions
+  career_bpm_normalized:  0.06  # MP-weighted BPM — career-long relative efficiency (NaN pre-advanced)
+
+# ─────────────────────────────────────────────────
+# LAYER 3 — ACHIEVEMENT (0.24)
+# External validation: rings, awards, recognition.
+# Captures team success and peer/voter validation that stats alone miss.
+# ─────────────────────────────────────────────────
+  championships_normalized: 0.10  # Championships — ultimate team success metric
+  mvp_normalized:           0.06  # MVP awards — year's best player, peer/voter validation
+  finals_mvp_normalized:    0.04  # Finals MVP — performed on the biggest stage
+  all_nba_1st_normalized:   0.02  # All-NBA 1st Team — year-over-year elite recognition
+  all_star_normalized:      0.01  # All-Star selections — longevity of fan/coach recognition
+  def_1st_normalized:       0.005 # All-Defensive 1st Team — defensive dominance
+  dpoy_normalized:          0.003 # DPOY — rare top defensive recognition (post-1983 only)
+  all_nba_2nd_normalized:   0.002 # All-NBA 2nd Team — secondary individual honors
+
+# ─────────────────────────────────────────────────
+# LAYER 4 — EFFICIENCY (0.10)
+# Per-possession and per-minute career efficiency.
+# Separates high-volume average players from efficient contributors.
+# ─────────────────────────────────────────────────
+  career_ws48_normalized: 0.06  # Career WS/48 — efficiency vs. minutes (era-robust)
+  career_ts_normalized:   0.04  # TS% — shooting efficiency across all shot types
+
+# ─────────────────────────────────────────────────
+# LAYER 5 — LONGEVITY (0.05)
+# Calendar years active.
+# Tiebreaker for otherwise comparable careers.
+# ─────────────────────────────────────────────────
+  longevity_normalized: 0.05  # Calendar years with qualifying seasons
+
+# ─────────────────────────────────────────────────
+# WEIGHT AUDIT (do not edit — informational only)
+# peak:        0.14 + 0.12 + 0.09            = 0.35
+# career:      0.11 + 0.09 + 0.06            = 0.26
+# achievement: 0.10 + 0.06 + 0.04 + 0.02
+#              + 0.01 + 0.005 + 0.003 + 0.002 = 0.24
+# efficiency:  0.06 + 0.04                   = 0.10
+# longevity:   0.05                          = 0.05
+# total:                                     = 1.00
+# ─────────────────────────────────────────────────
+
+# ─────────────────────────────────────────────────
+# NaN POLICY
+# ─────────────────────────────────────────────────
+nan_policy:
+  strategy: rescale_by_available_weight
+  nan_columns: [peak_bpm_normalized, peak_vorp_normalized, career_vorp_normalized, career_bpm_normalized]
+  description: >
+    These columns are NaN for pre-advanced era players (1947–73) who
+    predate BPM and VORP tracking. The scorer computes the weighted sum
+    from available metrics, then divides by the sum of their weights
+    (not the full 1.0) to maintain the [0, 100] output range.
+    Pre-advanced era players are thus scored fairly on what exists —
+    not penalised for absent data.
+
+# ─────────────────────────────────────────────────
+# SCORE VALIDATION
+# ─────────────────────────────────────────────────
+validation:
+  score_min: 0.0
+  score_max: 100.0
+  weight_sum_tolerance: 1.0e-6

@@ -10,6 +10,13 @@ _ERA_COLORS: dict[str, str] = {
     "Big 3 Era": "#66BB6A",
 }
 
+_NBA_ERA_COLORS: dict[str, str] = {
+    "pre_advanced": "#90A4AE",
+    "pre_3pt":      "#FFA726",
+    "modern":       "#5C6BC0",
+    "analytics":    "#26A69A",
+}
+
 _SURFACE_COLORS: dict[str, str] = {
     "Hard": "#2196F3",
     "Clay": "#FF5722",
@@ -17,73 +24,32 @@ _SURFACE_COLORS: dict[str, str] = {
 }
 
 
-def plot_athlete_scores(scores: pd.Series, title: str = "Athlete Scores") -> go.Figure:
-    df = scores.reset_index()
-    df.columns = ["athlete", "score"]
-    df = df.sort_values("score", ascending=True)
-    return px.bar(
-        df,
-        x="score",
-        y="athlete",
-        orientation="h",
-        title=title,
-        color="score",
-        color_continuous_scale="RdYlGn",
-        range_color=[0, 100],
-    )
 
-
-def plot_radar_chart(metrics: dict[str, float], athlete_name: str) -> go.Figure:
-    categories = list(metrics.keys())
-    values = list(metrics.values())
-    fig = go.Figure(
-        go.Scatterpolar(
-            r=values + [values[0]],
-            theta=categories + [categories[0]],
-            fill="toself",
-            name=athlete_name,
-        )
-    )
-    fig.update_layout(
-        polar=dict(radialaxis=dict(visible=True, range=[0, 100])),
-        title=f"{athlete_name} — Metric Radar",
-    )
-    return fig
-
-
-def plot_score_breakdown(breakdown: pd.DataFrame, top_n: int = 10) -> go.Figure:
-    top = breakdown.nlargest(top_n, "total").drop(columns="total")
-    fig = px.bar(
-        top.reset_index().melt(id_vars="index"),
-        x="value",
-        y="index",
-        color="variable",
-        orientation="h",
-        title=f"Top {top_n} Athletes — Score Breakdown",
-        barmode="stack",
-    )
-    return fig
-
-
-def plot_goat_rankings(df: pd.DataFrame, top_n: int = 20) -> go.Figure:
+def plot_goat_rankings(
+    df: pd.DataFrame,
+    top_n: int = 20,
+    score_col: str = "goat_score",
+    color_map: dict[str, str] | None = None,
+) -> go.Figure:
+    _color_map = color_map if color_map is not None else _ERA_COLORS
     top = (
-        df.nlargest(top_n, "composite_score")
-        .sort_values("composite_score", ascending=True)
+        df.nlargest(top_n, score_col)
+        .sort_values(score_col, ascending=True)
     )
     fig = px.bar(
         top,
-        x="composite_score",
+        x=score_col,
         y="name",
         color="era",
         orientation="h",
-        color_discrete_map=_ERA_COLORS,
+        color_discrete_map=_color_map,
         title=f"GOAT Rankings — Top {top_n}",
-        labels={"composite_score": "Composite Score (0–100)", "name": "", "era": "Era"},
-        text="composite_score",
+        labels={score_col: "GOAT Score (0–100)", "name": "", "era": "Era"},
+        text=score_col,
     )
     fig.update_traces(texttemplate="%{text:.1f}", textposition="outside")
     for trace in fig.data:
-        trace.update(textfont_color=_ERA_COLORS.get(trace.name, "#ffffff"))
+        trace.update(textfont_color=_color_map.get(trace.name, "#333333"))
     fig.update_layout(
         plot_bgcolor="white",
         xaxis=dict(range=[0, 105], gridcolor="#eeeeee"),
@@ -93,8 +59,8 @@ def plot_goat_rankings(df: pd.DataFrame, top_n: int = 20) -> go.Figure:
     return fig
 
 
-def plot_surface_map(df: pd.DataFrame) -> go.Figure:
-    top10 = df.nlargest(10, "composite_score")["name"].tolist()
+def plot_surface_map(df: pd.DataFrame, score_col: str = "goat_score") -> go.Figure:
+    top10 = df.nlargest(10, score_col)["name"].tolist()
     plot_df = df.copy()
     plot_df["label"] = plot_df["name"].where(plot_df["name"].isin(top10), "")
 
@@ -102,12 +68,12 @@ def plot_surface_map(df: pd.DataFrame) -> go.Figure:
         plot_df,
         x="clay_win_pct",
         y="grass_win_pct",
-        size="composite_score",
+        size=score_col,
         color="era",
         text="label",
         hover_name="name",
         hover_data={
-            "composite_score": ":.1f",
+            score_col: ":.1f",
             "clay_win_pct": ":.3f",
             "grass_win_pct": ":.3f",
             "hard_win_pct": ":.3f",

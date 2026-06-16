@@ -3,13 +3,13 @@ from __future__ import annotations
 import sys
 from pathlib import Path
 
-# Ensure project root is on sys.path when Streamlit runs from any cwd
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 import pandas as pd
 import streamlit as st
 
 from src.features.engineering import TennisSurfaceFeatures
+from src.models.nba_model import NBAForestModel, load_nba_model_config
 from src.models.tennis_model import (
     TARGET_COL,
     TennisForestModel,
@@ -17,7 +17,11 @@ from src.models.tennis_model import (
     cross_validate_model,
     prepare_features,
 )
+from src.pipelines.nba_runner import NBARunner
+from src.scoring.tennis_scorer import TennisScorer
 from src.visualization.plots import (
+    _ERA_COLORS,
+    _NBA_ERA_COLORS,
     plot_feature_importance,
     plot_goat_rankings,
     plot_player_radar,
@@ -26,9 +30,17 @@ from src.visualization.plots import (
     plot_surface_map,
 )
 
-_DATA_PATH = Path(__file__).parent.parent / "data/processed/tennis_all_v2.csv"
+# ── Paths ─────────────────────────────────────────────────────────────────────
 
-_RADAR_METRICS: list[str] = [
+_ROOT = Path(__file__).parent.parent
+_TENNIS_DATA_PATH   = _ROOT / "data/processed/tennis_all_v2.csv"
+_TENNIS_SCORE_CFG   = _ROOT / "configs/scoring_tennis.yaml"
+_NBA_DATA_DIR       = _ROOT / "data/raw"
+_NBA_CONFIG_DIR     = _ROOT / "configs"
+
+# ── Tennis constants ──────────────────────────────────────────────────────────
+
+_TENNIS_RADAR_METRICS: list[str] = [
     "grand_slam_normalized",
     "weeks_no1_normalized",
     "masters_titles_normalized",
@@ -39,116 +51,156 @@ _RADAR_METRICS: list[str] = [
     "longevity_normalized",
 ]
 
-_RADAR_LABELS: dict[str, str] = {
-    "grand_slam_normalized": "Grand Slams",
-    "weeks_no1_normalized": "Weeks No.1",
-    "masters_titles_normalized": "Masters",
-    "career_win_rate_normalized": "Win Rate",
-    "finals_win_rate_normalized": "Finals Win%",
-    "h2h_top10_normalized": "H2H Top-10",
+_TENNIS_RADAR_LABELS: dict[str, str] = {
+    "grand_slam_normalized":          "Grand Slams",
+    "weeks_no1_normalized":           "Weeks No.1",
+    "masters_titles_normalized":      "Masters",
+    "career_win_rate_normalized":     "Win Rate",
+    "finals_win_rate_normalized":     "Finals Win%",
+    "h2h_top10_normalized":           "H2H Top-10",
     "surface_versatility_normalized": "Versatility",
-    "longevity_normalized": "Longevity",
+    "longevity_normalized":           "Longevity",
 }
+
+# ── NBA constants ─────────────────────────────────────────────────────────────
+
+_NBA_RADAR_METRICS: list[str] = [
+    "peak_score",
+    "career_score",
+    "achievement_score",
+    "efficiency_score",
+    "longevity_score",
+]
+
+_NBA_RADAR_LABELS: dict[str, str] = {
+    "peak_score":         "Peak",
+    "career_score":       "Career",
+    "achievement_score":  "Achievement",
+    "efficiency_score":   "Efficiency",
+    "longevity_score":    "Longevity",
+}
+
+# ── Data loaders ──────────────────────────────────────────────────────────────
+
+@st.cache_data
+def load_tennis_data() -> pd.DataFrame:
+    df = pd.read_csv(_TENNIS_DATA_PATH)
+    df = TennisSurfaceFeatures.build_all(df)
+    scorer = TennisScorer(_TENNIS_SCORE_CFG)
+    df["goat_score"] = scorer.score(df)
+    layer_df = scorer.layer_scores(df)
+    return pd.concat([df, layer_df], axis=1)
+
+
+@st.cache_resource
+def fit_tennis_models(cache_key: int):
+    df = load_tennis_data()
+    X = prepare_features(df)
+    y = df[TARGET_COL]
+    ridge  = TennisRidgeModel().fit(X, y)
+    forest = TennisForestModel(n_estimators=300, random_state=42).fit(X, y)
+    ridge_cv  = cross_validate_model(TennisRidgeModel, X, y, cv=5)
+    forest_cv = cross_validate_model(
+        lambda: TennisForestModel(n_estimators=300, random_state=42), X, y, cv=5
+    )
+    df["ridge_pred"]  = ridge.predict(X).values
+    df["forest_pred"] = forest.predict(X).values
+    return ridge, forest, ridge_cv, forest_cv, df
+
+
+@st.cache_data
+def load_nba_data() -> pd.DataFrame:
+    runner = NBARunner(_NBA_DATA_DIR, _NBA_CONFIG_DIR)
+    return runner.run()
+
+
+@st.cache_resource
+def fit_nba_forest():
+    df = load_nba_data()
+    cfg = load_nba_model_config(_NBA_CONFIG_DIR / "model_nba.yaml")
+    model = NBAForestModel(cfg)
+    model.fit(df, df["goat_score"])
+    return model
+
+
+# ── App entry ─────────────────────────────────────────────────────────────────
 
 st.set_page_config(
     page_title="The Greatest Athlete of All Time",
-    page_icon="🎾",
+    page_icon="🏆",
     layout="wide",
 )
 
 
-@st.cache_data
-def load_data() -> pd.DataFrame:
-    df = pd.read_csv(_DATA_PATH)
-    return TennisSurfaceFeatures.build_all(df)
-
-
-@st.cache_resource
-def fit_models(cache_key: int):  # cache_key ties to data version
-    df = load_data()
-    X = prepare_features(df)
-    y = df[TARGET_COL]
-
-    ridge = TennisRidgeModel().fit(X, y)
-    forest = TennisForestModel(n_estimators=300, random_state=42).fit(X, y)
-
-    ridge_cv = cross_validate_model(TennisRidgeModel, X, y, cv=5)
-    forest_cv = cross_validate_model(
-        lambda: TennisForestModel(n_estimators=300, random_state=42), X, y, cv=5
-    )
-
-    df["ridge_pred"] = ridge.predict(X).values
-    df["forest_pred"] = forest.predict(X).values
-
-    return ridge, forest, ridge_cv, forest_cv, df
-
-
 def main() -> None:
-    st.title("The Greatest Athlete of All Time")
-    st.caption("Surface-based GOAT analysis · ATP Tennis · 617 Players · 1968–2026")
+    st.sidebar.title("The GOAT Project")
+    sport = st.sidebar.selectbox("Sport", ["🎾 Tennis", "🏀 NBA"], index=0)
 
-    df = load_data()
-    ridge, forest, ridge_cv, forest_cv, df_with_preds = fit_models(cache_key=2)
+    if sport == "🎾 Tennis":
+        _tennis_page()
+    else:
+        _nba_page()
 
-    # ── Sidebar ──────────────────────────────────────────────
+
+# ── Tennis page ───────────────────────────────────────────────────────────────
+
+def _tennis_page() -> None:
+    st.title("Greatest of All Time — Tennis")
+    st.caption("Rule-based GOAT scoring · ATP · 617 Players · 1968–2026")
+
+    df = load_tennis_data()
+    ridge, forest, ridge_cv, forest_cv, df_preds = fit_tennis_models(cache_key=2)
+
+    # Sidebar filters
     st.sidebar.header("Filters")
     all_eras = sorted(df["era"].unique().tolist())
     selected_eras = st.sidebar.multiselect("Era", all_eras, default=all_eras)
-    top_n = st.sidebar.slider("Top N players to show", 10, 50, 20, 5)
-    gs_only = st.sidebar.checkbox("Grand Slam winners only", value=False)
+    top_n    = st.sidebar.slider("Top N players", 10, 50, 20, 5)
+    gs_only  = st.sidebar.checkbox("Grand Slam winners only", value=False)
 
     filtered = df[df["era"].isin(selected_eras)].copy()
     if gs_only:
         filtered = filtered[filtered["grand_slams"] >= 1]
 
-    # ── Tabs ─────────────────────────────────────────────────
     tab_rank, tab_surface, tab_player, tab_model = st.tabs([
-        "🏆 Rankings",
-        "🌍 Surface Map",
-        "🔍 Player Deep-Dive",
-        "🤖 Model Insights",
+        "🏆 Rankings", "🌍 Surface Map", "🔍 Player Deep-Dive", "🤖 Model Insights",
     ])
 
-    # ── Tab 1: Rankings ──────────────────────────────────────
+    # ── Rankings ──────────────────────────────────────────────────────────────
     with tab_rank:
         col_left, col_right = st.columns([3, 1])
 
         with col_left:
             st.plotly_chart(
-                plot_goat_rankings(filtered, top_n=top_n),
+                plot_goat_rankings(filtered, top_n=top_n, color_map=_ERA_COLORS),
                 use_container_width=True,
             )
 
         with col_right:
             st.subheader("Top 3")
-            top3 = filtered.nlargest(3, "composite_score")
+            top3 = filtered.nlargest(3, "goat_score")
             for rank, (_, row) in enumerate(top3.iterrows(), 1):
                 medal = ["🥇", "🥈", "🥉"][rank - 1]
-                st.metric(
-                    label=f"{medal} #{rank}",
-                    value=row["name"],
-                    delta=f"{row['composite_score']:.1f} pts",
-                )
-
+                st.metric(label=f"{medal} #{rank}", value=row["name"],
+                          delta=f"{row['goat_score']:.1f} pts")
             st.divider()
             st.subheader("Era breakdown")
-            era_counts = filtered["era"].value_counts()
-            for era, count in era_counts.items():
+            for era, count in filtered["era"].value_counts().items():
                 st.write(f"**{era}:** {count} players")
 
         st.subheader("Full Rankings Table")
-        table_cols = ["name", "era", "composite_score", "grand_slams",
+        table_cols = ["name", "era", "goat_score", "grand_slams",
                       "hard_win_pct", "clay_win_pct", "grass_win_pct",
                       "surface_versatility_normalized"]
         display = (
             filtered[table_cols]
-            .sort_values("composite_score", ascending=False)
+            .sort_values("goat_score", ascending=False)
             .reset_index(drop=True)
         )
         display.index += 1
         st.dataframe(
             display.style.format({
-                "composite_score": "{:.2f}",
+                "goat_score": "{:.2f}",
                 "grand_slams": "{:.1f}",
                 "hard_win_pct": "{:.1%}",
                 "clay_win_pct": "{:.1%}",
@@ -159,16 +211,14 @@ def main() -> None:
             height=400,
         )
 
-    # ── Tab 2: Surface Map ───────────────────────────────────
+    # ── Surface Map ───────────────────────────────────────────────────────────
     with tab_surface:
         col_a, col_b = st.columns(2)
-
         with col_a:
             st.plotly_chart(
-                plot_surface_map(filtered),
+                plot_surface_map(filtered, score_col="goat_score"),
                 use_container_width=True,
             )
-
         with col_b:
             st.plotly_chart(
                 plot_surface_distributions(filtered),
@@ -181,43 +231,37 @@ def main() -> None:
             .groupby("era")[["hard_win_pct", "clay_win_pct", "grass_win_pct"]]
             .mean()
             .round(3)
-            .rename(columns={
-                "hard_win_pct": "Hard",
-                "clay_win_pct": "Clay",
-                "grass_win_pct": "Grass",
-            })
+            .rename(columns={"hard_win_pct": "Hard", "clay_win_pct": "Clay",
+                              "grass_win_pct": "Grass"})
         )
         era_surface["Spread (pp)"] = (
             (era_surface.max(axis=1) - era_surface.min(axis=1)) * 100
         ).round(1)
         st.dataframe(
-            era_surface.style.format({
-                "Hard": "{:.1%}", "Clay": "{:.1%}", "Grass": "{:.1%}",
-            }),
+            era_surface.style.format({"Hard": "{:.1%}", "Clay": "{:.1%}", "Grass": "{:.1%}"}),
             use_container_width=True,
         )
 
-    # ── Tab 3: Player Deep-Dive ──────────────────────────────
+    # ── Player Deep-Dive ──────────────────────────────────────────────────────
     with tab_player:
-        player_names = filtered.sort_values("composite_score", ascending=False)["name"].tolist()
+        player_names = filtered.sort_values("goat_score", ascending=False)["name"].tolist()
         selected = st.selectbox("Select player", player_names)
-
-        player_row = filtered[filtered["name"] == selected].iloc[0]
+        row = filtered[filtered["name"] == selected].iloc[0]
 
         col1, col2, col3, col4 = st.columns(4)
-        col1.metric("Composite Score", f"{player_row['composite_score']:.2f}")
-        col2.metric("Era", player_row["era"])
-        col3.metric("Grand Slams", f"{player_row['grand_slams']:.1f}")
-        col4.metric("Surface Versatility", f"{player_row['surface_versatility_normalized']:.1f}")
+        col1.metric("GOAT Score",          f"{row['goat_score']:.2f}")
+        col2.metric("Era",                 row["era"])
+        col3.metric("Grand Slams",         f"{row['grand_slams']:.1f}")
+        col4.metric("Surface Versatility", f"{row['surface_versatility_normalized']:.1f}")
 
         st.divider()
-        col_radar, col_surface = st.columns([1, 1])
+        col_radar, col_surface = st.columns(2)
 
         with col_radar:
             radar_metrics = {
-                _RADAR_LABELS[col]: float(player_row[col])
-                for col in _RADAR_METRICS
-                if col in player_row.index
+                _TENNIS_RADAR_LABELS[col]: float(row[col])
+                for col in _TENNIS_RADAR_METRICS
+                if col in row.index
             }
             st.plotly_chart(
                 plot_player_radar(radar_metrics, selected),
@@ -226,73 +270,192 @@ def main() -> None:
 
         with col_surface:
             st.subheader("Surface Performance")
-            surface_data = {
-                "Hard": player_row["hard_win_pct"],
-                "Clay": player_row["clay_win_pct"],
-                "Grass": player_row["grass_win_pct"],
-            }
-            for surface, rate in surface_data.items():
-                st.metric(f"{surface} Win Rate", f"{rate:.1%}")
-
+            for surface, col_name in [("Hard", "hard_win_pct"), ("Clay", "clay_win_pct"),
+                                       ("Grass", "grass_win_pct")]:
+                st.metric(f"{surface} Win Rate", f"{row[col_name]:.1%}")
             st.divider()
             st.subheader("Surface Consistency (Year-over-Year Std)")
-            st.metric("Clay Std", f"{player_row['clay_win_rate_std']:.3f}")
-            st.metric("Grass Std", f"{player_row['grass_win_rate_std']:.3f}")
-
+            st.metric("Clay Std",  f"{row['clay_win_rate_std']:.3f}")
+            st.metric("Grass Std", f"{row['grass_win_rate_std']:.3f}")
             st.divider()
             st.subheader("Engineered Features")
             st.metric("Surface Flexibility (clay × grass)",
-                       f"{player_row['surface_flexibility']:.3f}")
+                      f"{row['surface_flexibility']:.3f}")
             st.metric("Surface Gap |clay − grass|",
-                       f"{player_row['surface_gap']:.3f}")
+                      f"{row['surface_gap']:.3f}")
             st.metric("Surface Floor (worst surface)",
-                       f"{player_row['surface_floor']:.3f}")
+                      f"{row['surface_floor']:.3f}")
 
-    # ── Tab 4: Model Insights ────────────────────────────────
+    # ── Model Insights ────────────────────────────────────────────────────────
     with tab_model:
         st.subheader("Cross-Validation Performance (5-Fold)")
         m1, m2, m3, m4 = st.columns(4)
-        m1.metric("Ridge R²", f"{ridge_cv.r2_cv_mean:.3f}", f"± {ridge_cv.r2_cv_std:.3f}")
-        m2.metric("Ridge RMSE", f"{ridge_cv.rmse_cv_mean:.3f}")
-        m3.metric("Forest R²", f"{forest_cv.r2_cv_mean:.3f}", f"± {forest_cv.r2_cv_std:.3f}")
+        m1.metric("Ridge R²",    f"{ridge_cv.r2_cv_mean:.3f}",  f"± {ridge_cv.r2_cv_std:.3f}")
+        m2.metric("Ridge RMSE",  f"{ridge_cv.rmse_cv_mean:.3f}")
+        m3.metric("Forest R²",   f"{forest_cv.r2_cv_mean:.3f}", f"± {forest_cv.r2_cv_std:.3f}")
         m4.metric("Forest RMSE", f"{forest_cv.rmse_cv_mean:.3f}")
-
         st.caption(
-            "R² = variance explained by surface+era features alone (no grand_slams, no weeks_at_no1). "
+            "R² = variance explained by surface + era features alone (no grand_slams, no weeks_at_no1). "
             "Forest > Ridge confirms non-linear era × surface thresholds exist in the data."
         )
 
         st.divider()
         col_imp, col_coef = st.columns(2)
-
         with col_imp:
             st.plotly_chart(
-                plot_feature_importance(
-                    forest.feature_importance(),
-                    title="Random Forest — Feature Importance",
-                ),
+                plot_feature_importance(forest.feature_importance(),
+                                        title="Random Forest — Feature Importance"),
                 use_container_width=True,
             )
-
         with col_coef:
             st.plotly_chart(
-                plot_feature_importance(
-                    ridge.coefficients(),
-                    title="Ridge — Scaled Coefficients (green=+, red=−)",
-                ),
+                plot_feature_importance(ridge.coefficients(),
+                                        title="Ridge — Scaled Coefficients (green=+, red=−)"),
                 use_container_width=True,
             )
 
         st.divider()
-        model_choice = st.radio(
-            "Predicted vs Actual — select model",
-            ["Random Forest", "Ridge"],
-            horizontal=True,
-        )
+        model_choice = st.radio("Predicted vs Actual — select model",
+                                ["Random Forest", "Ridge"], horizontal=True)
         pred_col = "forest_pred" if model_choice == "Random Forest" else "ridge_pred"
-        plot_df = df_with_preds[df_with_preds["era"].isin(selected_eras)].copy()
+        plot_df = df_preds[df_preds["era"].isin(selected_eras)].copy()
         st.plotly_chart(
             plot_predicted_vs_actual(plot_df, TARGET_COL, pred_col),
+            use_container_width=True,
+        )
+
+
+# ── NBA page ──────────────────────────────────────────────────────────────────
+
+def _nba_page() -> None:
+    st.title("Greatest of All Time — NBA")
+    st.caption("Rule-based GOAT scoring · NBA · 1481 Players · 1947–2026")
+
+    with st.spinner("Loading NBA data (first run ~5s)…"):
+        df = load_nba_data()
+
+    # Sidebar filters
+    st.sidebar.header("Filters")
+    all_eras  = sorted(df["era"].unique().tolist())
+    era_labels = {
+        "pre_advanced": "Pre-Advanced (≤1973)",
+        "pre_3pt":      "Pre-3pt (1974–1979)",
+        "modern":       "Modern (1980–2010)",
+        "analytics":    "Analytics (2011–)",
+    }
+    era_display = [era_labels.get(e, e) for e in all_eras]
+    selected_display = st.sidebar.multiselect("Era", era_display, default=era_display)
+    selected_eras    = [all_eras[era_display.index(d)] for d in selected_display]
+
+    top_n       = st.sidebar.slider("Top N players", 10, 50, 20, 5)
+    champ_only  = st.sidebar.checkbox("Champions only", value=False)
+    min_games   = st.sidebar.slider("Min career games", 200, 800, 400, 50)
+
+    filtered = df[df["era"].isin(selected_eras)].copy()
+    if champ_only:
+        filtered = filtered[filtered["championships"] >= 1]
+    filtered = filtered[filtered["total_games"] >= min_games]
+
+    tab_rank, tab_player, tab_model = st.tabs([
+        "🏆 Rankings", "🔍 Player Deep-Dive", "🤖 Model Insights",
+    ])
+
+    # ── Rankings ──────────────────────────────────────────────────────────────
+    with tab_rank:
+        col_left, col_right = st.columns([3, 1])
+
+        with col_left:
+            st.plotly_chart(
+                plot_goat_rankings(filtered, top_n=top_n, color_map=_NBA_ERA_COLORS),
+                use_container_width=True,
+            )
+
+        with col_right:
+            st.subheader("Top 3")
+            top3 = filtered.nlargest(3, "goat_score")
+            for rank, (_, row) in enumerate(top3.iterrows(), 1):
+                medal = ["🥇", "🥈", "🥉"][rank - 1]
+                st.metric(label=f"{medal} #{rank}", value=row["name"],
+                          delta=f"{row['goat_score']:.1f} pts")
+            st.divider()
+            st.subheader("Era breakdown")
+            for era, count in filtered["era"].value_counts().items():
+                st.write(f"**{era_labels.get(era, era)}:** {count} players")
+
+        st.subheader("Full Rankings Table")
+        table_cols = ["name", "era", "goat_score", "championships",
+                      "mvp_awards", "career_ws", "peak_bpm", "years_active"]
+        display = (
+            filtered[table_cols]
+            .sort_values("goat_score", ascending=False)
+            .reset_index(drop=True)
+        )
+        display.index += 1
+        display["era"] = display["era"].map(era_labels).fillna(display["era"])
+        st.dataframe(
+            display.style.format({
+                "goat_score":   "{:.2f}",
+                "career_ws":    "{:.1f}",
+                "peak_bpm":     "{:.2f}",
+            }),
+            use_container_width=True,
+            height=400,
+        )
+
+    # ── Player Deep-Dive ──────────────────────────────────────────────────────
+    with tab_player:
+        player_names = filtered.sort_values("goat_score", ascending=False)["name"].tolist()
+        selected = st.selectbox("Select player", player_names, key="nba_player")
+        row = filtered[filtered["name"] == selected].iloc[0]
+
+        col1, col2, col3, col4 = st.columns(4)
+        col1.metric("GOAT Score",    f"{row['goat_score']:.2f}")
+        col2.metric("Era",           era_labels.get(str(row["era"]), str(row["era"])))
+        col3.metric("Championships", int(row["championships"]))
+        col4.metric("Years Active",  int(row["years_active"]))
+
+        st.divider()
+        col_radar, col_stats = st.columns(2)
+
+        with col_radar:
+            radar_metrics = {
+                _NBA_RADAR_LABELS[col]: float(row[col])
+                for col in _NBA_RADAR_METRICS
+                if col in row.index
+            }
+            st.plotly_chart(
+                plot_player_radar(radar_metrics, selected),
+                use_container_width=True,
+            )
+
+        with col_stats:
+            st.subheader("Career Stats")
+            st.metric("Win Shares",         f"{row['career_ws']:.1f}")
+            st.metric("Peak BPM",           f"{row['peak_bpm']:.2f}")
+            st.metric("MVP Awards",         int(row["mvp_awards"]))
+            st.metric("All-Star Selections", int(row["all_star_selections"]))
+            st.metric("Finals MVP",         int(row["finals_mvp"]))
+            st.divider()
+            st.subheader("Layer Scores")
+            for metric, label in _NBA_RADAR_LABELS.items():
+                if metric in row.index:
+                    st.metric(label, f"{row[metric]:.1f}")
+
+    # ── Model Insights ────────────────────────────────────────────────────────
+    with tab_model:
+        st.subheader("Random Forest — Feature Importance")
+        st.caption(
+            "Forest predicts goat_score from normalized stat columns (R²=0.976). "
+            "Feature importance validates that YAML scorer weights are non-linear consistent: "
+            "career_ws dominates (49%), followed by career_vorp (21%) and peak_bpm (13%)."
+        )
+        with st.spinner("Fitting NBA model (first run ~5s)…"):
+            forest = fit_nba_forest()
+
+        importance_dict = forest.feature_importance().to_dict()
+        st.plotly_chart(
+            plot_feature_importance(importance_dict,
+                                    title="NBA Forest — Normalized Feature Importance"),
             use_container_width=True,
         )
 

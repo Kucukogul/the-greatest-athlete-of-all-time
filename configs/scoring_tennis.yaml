@@ -1,45 +1,86 @@
 # Tennis GOAT Scoring Configuration
 # Version: v1
 # Strategy: weighted_average
-# Score range: 0–100 (enforced by scorer)
+# Score range: 0–100 (enforced by TennisScorer)
 # All weights must sum to 1.0
+#
+# NaN policy: Tennis data is structurally complete — no pre-advanced era gap.
+# Players absent from a surface (e.g. no clay matches) receive 0, not NaN.
+# Standard weighted average applies without rescaling.
 
+version: v1
 strategy: weighted_average
 
 # ─────────────────────────────────────────────
-# LAYER 1 — Absolute Achievement (raw metrics)
-# Ağırlık toplamı: 0.70
+# LAYER DEFINITIONS
+# TennisScorer.layer_scores() reads these to build per-layer scores [0–100]
+# using equal weights within each layer (for radar chart comparability).
+# Inter-layer weights are defined separately in `weights:` below.
+# ─────────────────────────────────────────────
+layers:
+  achievement:
+    metrics:
+      - grand_slam_normalized
+      - weeks_no1_normalized
+      - masters_titles_normalized
+      - career_win_rate_normalized
+    # Raw volume of dominance — grand slams are the currency of GOAT debates.
+    # career_win_rate anchors the layer to sustained excellence, not just peaks.
+
+  quality:
+    metrics:
+      - yearend_no1_normalized
+      - finals_win_rate_normalized
+      - h2h_top10_normalized
+    # Winning matters; winning the right matches matters more.
+    # h2h_top10 filters for performance under elite opposition.
+
+  context:
+    metrics:
+      - surface_versatility_normalized
+      - longevity_normalized
+    # Breadth and durability. Rewards cross-surface dominance over clay/grass specialists.
+    # Longevity is a tiebreaker, not a primary signal.
+
+# ─────────────────────────────────────────────
+# INTER-LAYER WEIGHTS
+# Used by TennisScorer.score() to produce the final composite goat_score.
+# Layer sums: achievement=0.70, quality=0.20, context=0.10.
 # ─────────────────────────────────────────────
 weights:
-  grand_slam_normalized:      0.28   # Grand Slam sayısı — en kritik gösterge
-  weeks_no1_normalized:       0.18   # Haftalık No.1 süresi — süregelen doruk
-  masters_titles_normalized:  0.14   # Masters 1000 şampiyonlukları — elite tutarlılık
-  career_win_rate_normalized: 0.10   # Kariyer kazanma yüzdesi — hacim + kalite
+  # Layer 1 — Achievement (0.70)
+  grand_slam_normalized:      0.28   # Highest single weight — slams are the primary GOAT criterion
+  weeks_no1_normalized:       0.18   # Duration of No.1 hold — sustained peak, not a single season
+  masters_titles_normalized:  0.14   # Elite consistency below slam level
+  career_win_rate_normalized: 0.10   # Volume × quality filter; suppresses short-career outliers
+
+  # Layer 2 — Quality (0.20)
+  yearend_no1_normalized:     0.08   # Year-end No.1 finishes — peaks that lasted a full season
+  finals_win_rate_normalized: 0.07   # Final conversion rate — closing ability under pressure
+  h2h_top10_normalized:       0.05   # Head-to-head vs. Top-10 — elite opposition filter
+
+  # Layer 3 — Context (0.10)
+  surface_versatility_normalized: 0.06  # Inverse std of surface win rates — all-court dominance
+  longevity_normalized:           0.04  # Active years in Top-5 — tiebreaker, not a primary signal
 
 # ─────────────────────────────────────────────
-# LAYER 2 — Quality Indicators (quality metrics)
-# Ağırlık toplamı: 0.20
+# WEIGHT AUDIT (informational — do not edit)
+# achievement: 0.28 + 0.18 + 0.14 + 0.10 = 0.70
+# quality:     0.08 + 0.07 + 0.05        = 0.20
+# context:     0.06 + 0.04               = 0.10
+# total:                                 = 1.00
 # ─────────────────────────────────────────────
-  yearend_no1_normalized:     0.08   # Yıl sonu No.1 finişleri — yıllık zirvede bitirme
-  finals_win_rate_normalized: 0.07   # Final kazanma yüzdesi — büyük anlarda performans
-  h2h_top10_normalized:       0.05   # Top-10 rakiplere karşı H2H — rakip kalite filtresi
-
-# ─────────────────────────────────────────────
-# LAYER 3 — Contextual Adjusters (era + breadth)
-# Ağırlık toplamı: 0.10
-# ─────────────────────────────────────────────
-  surface_versatility_normalized: 0.06  # Yüzey çeşitliliği — sadece kil değil, her yüzeyde dominance
-  longevity_normalized:           0.04  # Kariyer uzunluğu — kaç yıl top-5'te kaldı
 
 # ─────────────────────────────────────────────
 # ERA NORMALIZATION PARAMETERS
-# engineering.py → FeatureEngineer.era_adjust() için
+# TennisNormalizer._apply_era_adjustment() için
+# Big 3 Era referans nokta (factor = 1.0) — rekabet bu dönemde zirvedeydi.
 # ─────────────────────────────────────────────
 era_definitions:
   open_era:
     years: [1968, 1989]
     label: "Open Era"
-    gs_per_year_mean: 1.2    # Ortalama GS/yıl — rekabet derinliği düşük
+    gs_per_year_mean: 1.2    # Rekabet derinliği düşük — kazanmak görece kolay
     weeks_no1_mean: 52.0
 
   modern_era:
@@ -51,29 +92,32 @@ era_definitions:
   big3_era:
     years: [2004, 2023]
     label: "Big 3 Era"
-    gs_per_year_mean: 2.8    # Rekabet doruk noktasında — en sert dönem
+    gs_per_year_mean: 2.8    # En yoğun rekabet dönemi — referans dönem
     weeks_no1_mean: 38.0
 
 # ─────────────────────────────────────────────
-# SURFACE VERSATILITY — bileşik hesaplama
-# Her yüzeyde kazanma oranı → std ile normalize
-# Düşük std = yüksek versatility
+# SURFACE VERSATILITY
+# TennisNormalizer._compute_surface_versatility() için
+# Her yüzeyde kazanma oranı hesaplanır → std alınır → tersine çevrilir.
+# Düşük std (dengeli) → yüksek versatility skoru.
 # ─────────────────────────────────────────────
 surface_versatility:
   surfaces: [hard, clay, grass]
-  method: inverse_std  # win_rate std'sinin tersi → tutarlılığı ödüllendirir
+  method: inverse_std  # win_rate std'sinin tersi → yüzeyler arası tutarlılığı ödüllendirir
 
 # ─────────────────────────────────────────────
 # PENALTIES
-# Oynanmayan turnuva cezası (0.0 = aktif değil)
+# Post-scoring düzeltmeler. Şu an tek penalty: turnuva katılım oranı.
+# 0.0 ise devre dışı.
 # ─────────────────────────────────────────────
 penalties:
-  tournaments_played_pct: 0.05  # Kariyer boyunca katılım oranı — düşük katılım hafif ceza
+  tournaments_played_pct: 0.05  # Katılım eksikliği için maksimum skor düşümü (5 puan)
 
 # ─────────────────────────────────────────────
 # SCORE VALIDATION
+# TennisScorer init'inde kontrol edilir — geçersiz config anında ValueError.
 # ─────────────────────────────────────────────
 validation:
   score_min: 0.0
   score_max: 100.0
-  weight_sum_tolerance: 1e-6   # weights toplamının 1.0'dan sapma toleransı
+  weight_sum_tolerance: 1.0e-6  # weights toplamının 1.0'dan izin verilen sapma

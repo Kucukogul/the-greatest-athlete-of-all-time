@@ -17,7 +17,6 @@ from src.models.tennis_model import (
     cross_validate_model,
     prepare_features,
 )
-from src.pipelines.nba_runner import NBARunner
 from src.scoring.tennis_scorer import TennisScorer
 from src.visualization.plots import (
     _ERA_COLORS,
@@ -34,8 +33,8 @@ from src.visualization.plots import (
 
 _ROOT = Path(__file__).parent.parent
 _TENNIS_DATA_PATH   = _ROOT / "data/processed/tennis_all_v2.csv"
+_NBA_DATA_PATH      = _ROOT / "data/processed/nba_goat_v1.csv"
 _TENNIS_SCORE_CFG   = _ROOT / "configs/scoring_tennis.yaml"
-_NBA_DATA_DIR       = _ROOT / "data/raw"
 _NBA_CONFIG_DIR     = _ROOT / "configs"
 
 # ── Tennis constants ──────────────────────────────────────────────────────────
@@ -110,8 +109,7 @@ def fit_tennis_models(cache_key: int):
 
 @st.cache_data
 def load_nba_data() -> pd.DataFrame:
-    runner = NBARunner(_NBA_DATA_DIR, _NBA_CONFIG_DIR)
-    return runner.run()
+    return pd.read_csv(_NBA_DATA_PATH)
 
 
 @st.cache_resource
@@ -331,8 +329,7 @@ def _nba_page() -> None:
     st.title("Greatest of All Time — NBA")
     st.caption("Rule-based GOAT scoring · NBA · 1481 Players · 1947–2026")
 
-    with st.spinner("Loading NBA data (first run ~5s)…"):
-        df = load_nba_data()
+    df = load_nba_data()
 
     # Sidebar filters
     st.sidebar.header("Filters")

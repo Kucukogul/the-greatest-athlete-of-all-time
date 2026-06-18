@@ -17,12 +17,17 @@ _NBA_ERA_COLORS: dict[str, str] = {
     "analytics":    "#26A69A",
 }
 
+_SWIMMING_ERA_COLORS: dict[str, str] = {
+    "Pre-Modern": "#78909C",
+    "Amateur":    "#FFA726",
+    "Modern":     "#26C6DA",
+}
+
 _SURFACE_COLORS: dict[str, str] = {
     "Hard": "#2196F3",
     "Clay": "#FF5722",
     "Grass": "#4CAF50",
 }
-
 
 
 def plot_goat_rankings(

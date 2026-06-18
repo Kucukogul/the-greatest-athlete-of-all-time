@@ -1,0 +1,148 @@
+# Swimming GOAT Scoring Configuration
+# Version: v1
+# Strategy: weighted_average
+# Score range: 0–100 (enforced by SwimmingScorer)
+# All weights must sum to 1.0
+#
+# NaN policy: Swimming data carries no structural NaN for Modern/Amateur era athletes.
+# Pre-Modern athletes (era = "Pre-Modern") have wc_gold_individual = 0 by structural
+# absence — World Championships did not begin until 1973. SwimmingNormalizer applies
+# an era adjustment before normalization; the scorer receives clean normalized values.
+# Standard weighted average applies without weight rescaling.
+#
+# EDA source: notebooks/exploration/eda_sw.ipynb
+# Key findings that drove weight decisions:
+#   - WR vs OG individual gold: r=0.911 → world_records capped at 0.15 to avoid double-counting
+#   - Relay dependency > 50% in 34% of athletes → individual weight (0.30) set at 3× relay (0.10)
+#   - Pre-Modern era adjustment ratio: 2.89 WC golds per OG individual gold (from Modern era avg)
+#   - Phelps sits 4.6σ above mean on both primary metrics → MinMax ceiling is correct
+
+version: v1
+strategy: weighted_average
+
+# ─────────────────────────────────────────────
+# LAYER DEFINITIONS
+# SwimmingScorer.layer_scores() reads these to build per-layer scores [0–100]
+# using equal weights within each layer (for radar chart comparability).
+# Inter-layer weights are defined separately in `weights:` below.
+# ─────────────────────────────────────────────
+layers:
+  achievement:
+    metrics:
+      - olympic_gold_individual_normalized
+      - wc_gold_individual_normalized
+      - olympic_gold_relay_normalized
+      - wc_gold_relay_normalized
+    # Medal volume — Olympic individual gold is the primary GOAT currency.
+    # WC individual gold captures sustained excellence outside Olympic cycles.
+    # Relay medals included at lower weight: team contribution, not individual skill.
+
+  peak:
+    metrics:
+      - world_records_normalized
+    # Technical ceiling — breaking a world record means being the best ever at that moment.
+    # Capped at 0.15 inter-layer weight: r=0.911 with OG individual gold (EDA Finding 2).
+    # Independent signal confirmed via r=0.494 with WC individual gold.
+
+  versatility:
+    metrics:
+      - events_dominated_normalized
+    # Distinct individual events in which athlete won Olympic gold.
+    # Rewards multi-event champions (Phelps: 5 events) over single-stroke specialists.
+    # Relay-only athletes (Torres) score 0 — no explicit penalty needed.
+
+  longevity:
+    metrics:
+      - career_years_normalized
+    # Elite career duration: career_end − career_start + 1.
+    # Tiebreaker signal — durability matters but cannot substitute for dominance.
+
+# ─────────────────────────────────────────────
+# INTER-LAYER WEIGHTS
+# Used by SwimmingScorer.score() to produce the final composite goat_score.
+# Layer sums: achievement=0.65, peak=0.15, versatility=0.10, longevity=0.10.
+# ─────────────────────────────────────────────
+weights:
+  # Layer 1 — Achievement (0.65)
+  olympic_gold_individual_normalized: 0.30  # Highest single weight — individual Olympic dominance is the primary GOAT criterion
+  wc_gold_individual_normalized:      0.20  # Sustained excellence across WC cycles; era-adjusted for Pre-Modern athletes
+  olympic_gold_relay_normalized:      0.10  # Team contribution — capped at 1/3 of individual weight (EDA Finding 3)
+  wc_gold_relay_normalized:           0.05  # Minor contribution; relay WC golds are the weakest individual signal
+
+  # Layer 2 — Peak (0.15)
+  world_records_normalized:           0.15  # Technical peak — capped due to r=0.911 with OG individual gold (EDA Finding 2)
+
+  # Layer 3 — Versatility (0.10)
+  events_dominated_normalized:        0.10  # Multi-event dominance; naturally penalizes relay-only profiles
+
+  # Layer 4 — Longevity (0.10)
+  career_years_normalized:            0.10  # Career duration — tiebreaker, not a primary signal
+
+# ─────────────────────────────────────────────
+# ERA NORMALIZATION PARAMETERS
+# SwimmingNormalizer._apply_era_adjustment() uses these.
+# Modern era is the reference (factor = 1.0) — full WC coverage, stringent anti-doping.
+#
+# Pre-Modern athletes competed before World Championships existed (WC debut: 1973).
+# Their wc_gold_individual = 0 is a structural absence, not a performance failure.
+# Adjustment: estimated_wc_golds = olympic_gold_individual × wc_per_og_ratio
+#
+# wc_per_og_ratio = 2.89 (derived from Modern era athletes in EDA — notebooks/exploration/eda_sw.ipynb)
+# ─────────────────────────────────────────────
+era_definitions:
+  pre_modern:
+    years: [1900, 1972]
+    label: "Pre-Modern"
+    wc_exists: false
+    wc_per_og_ratio: 2.89   # Estimated WC golds per OG individual gold — from Modern era mean
+    competition_depth: low  # Fewer nations, fewer events, lower global talent pool
+
+  amateur:
+    years: [1973, 1992]
+    label: "Amateur"
+    wc_exists: true
+    wc_per_og_ratio: 1.0    # No adjustment — WC existed; some counts may reflect doping era
+    competition_depth: medium
+
+  modern:
+    years: [1993, 2100]
+    label: "Modern"
+    wc_exists: true
+    wc_per_og_ratio: 1.0    # Reference era — no adjustment applied
+    competition_depth: high
+
+# ─────────────────────────────────────────────
+# DERIVED FEATURES
+# SwimmingPipeline computes these before normalization.
+# Documented here so config is the single source of truth for feature definitions.
+# ─────────────────────────────────────────────
+derived_features:
+  career_years:
+    formula: "career_end - career_start + 1"
+    description: "Total years of elite international competition"
+
+  olympic_gold_total:
+    formula: "olympic_gold_individual + olympic_gold_relay"
+    description: "All Olympic gold medals — used for relay dependency check only, not in scoring"
+
+  relay_dependency:
+    formula: "olympic_gold_relay / olympic_gold_total"
+    description: "Informational only — not used in scoring; weight structure handles this implicitly"
+
+# ─────────────────────────────────────────────
+# PENALTIES
+# Post-scoring corrections. Set to 0.0 to disable.
+# EDA Finding 3: relay dependency is handled implicitly by the 3:1 individual/relay
+# weight ratio — no explicit penalty is needed.
+# ─────────────────────────────────────────────
+penalties:
+  relay_dependency_penalty: 0.0  # Disabled — weight structure is sufficient (EDA Finding 3)
+
+# ─────────────────────────────────────────────
+# SCORE VALIDATION
+# SwimmingScorer validates at init — invalid config raises ValueError immediately.
+# ─────────────────────────────────────────────
+validation:
+  score_min: 0.0
+  score_max: 100.0
+  weight_sum_tolerance: 1.0e-6  # Maximum allowed deviation of weights sum from 1.0

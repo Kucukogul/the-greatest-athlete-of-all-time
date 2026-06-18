@@ -39,6 +39,7 @@ data/external/
 # Exceptions — dashboard data (Streamlit Cloud requires these files)
 !data/processed/tennis_all_v2.csv
 !data/processed/nba_goat_v1.csv
+!data/processed/swimming_goat_v1.csv
 
 # Model artifacts (root-level only — src/models/ is source code)
 /models/
